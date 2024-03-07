@@ -43,28 +43,6 @@ struct model{
     model();
 };
 
-class Neuron{
-    public:
-    static unsigned int nextId;
-    unsigned int id;
-    std::vector<float*> wptr;
-    float* b;
-    float val;
-    float z; // the sum(ai*wi) +b
-    int l; // the layer the neuron is on
-    float(*activate)(float);
-
-    float dcda;
-
-    public:
-    Neuron();
-    Neuron(float val);
-    Neuron(unsigned int numInputs, float(*activationFunction)(float), unsigned int& wCursor, model& model, int layer);
-    float update(list neuronInputs);
-    friend class NN;
-
-
-};
 class NN{
     //Members
     public:

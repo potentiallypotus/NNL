@@ -36,7 +36,7 @@ namespace{
         return i; 
     };
 };
-
+//b
 model::model(const std::vector<DataPoint> &trainingSet, const std::vector<unsigned int> &shape){
     this->numIns = trainingSet[0].inputs.size();
     this->numOuts = trainingSet[0].outputs.size();
