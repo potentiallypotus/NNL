@@ -113,7 +113,7 @@ Neuron::Neuron(float val){
 Neuron::Neuron(unsigned int numInputs, float(*activationFunction)(float), unsigned int& wCursor, model& model, int layer){
     id = nextId++;
     l = layer;
-    if (l >=model.NMat.size()-1){
+    if (l >=(int)model.NMat.size()-1){
         model.NMat.push_back(std::vector<Neuron*>());
     }
     activate = activationFunction;
@@ -259,45 +259,6 @@ void NN::backProp(std::vector<matrix>& weightsMatricies, matrix& biasMatrix, mat
             n--;
         }
     }
-
-
-    // for (int nI = neuronList.size()-1; nI >= 0; --nI){
-    //     // l = current layer index
-    //     // y = expected value of output node
-    //     // la = pointer to the above layer
-    //     // lc = current layer
-    //     // lb = layer below
-    //     Neuron* n = &neuronList[nI];
-    //     int l = n->l;
-    //     Neuron* lc = layerList[l];
-    //     float dcda = 0;
-    //     if (l == m.shape.size()-1){//if output layer
-    //         float y = expectedOuts[n-lc];
-    //         dcda = 2*(n->val - y);
-    //         n->dcda = dcda;
-    //         activatedMatrix[l][n-lc] += dcda;
-    //     }else{
-    //         Neuron* la = layerList[l+1];
-    //         int k = n - lc;
-    //         for (int j = 0; j < m.shape[l+1]; ++j){
-    //         dcda = (*(la+j)->wptr[k]) * (sigP(la[j].z)) * (la[j].dcda);
-    //         n->dcda = dcda;
-    //         activatedMatrix[l][n-lc] += dcda;
-    //         }
-    //     }
-    //     float dcdbj = sigP(n->z) * dcda;
-    //     biasMatrix[l][n-lc] -= rate * dcdbj;
-    //     Neuron* lb = layerList[l-1];
-    //     for (int k = 0; k < n->wptr.size(); ++k){
-    //         if (l == 0){
-    //             float dcdwjk = inputLayer[k].val * sigP(n->z) * dcda;
-    //             weightsMatricies[l][n-lc][k] -= rate * dcdwjk;
-    //         }else{
-    //             float dcdwjk = lb[k].val * sigP(n->z) * dcda;
-    //             weightsMatricies[l][n-lc][k] -= rate * dcdwjk;
-    //         }
-    //    }
-    //}
 }
 float NN::gradientDescent(){
 #if FINITE_DIFF
@@ -310,7 +271,7 @@ float NN::gradientDescent(){
         deltaSum+=deltaC;
     }
     for (int i = 0; i < m.numNeurons; ++i){
-        m.biasList[i] -= dCost(&m.biasList[i]) ;
+        m.biasList[i] -= dCost(&m.biasList[i])*RATE;
     }
     return deltaSum;
 #else
