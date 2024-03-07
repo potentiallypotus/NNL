@@ -1,16 +1,11 @@
 #include <cstddef>
 #include "NNL.hpp"
-//a
+
+
 #ifndef NNL_CPP
 #define NNL_CPP
-#define FINITE_DIFF 1
-#define EPOCH 10000
-#define DELTA 1e-5
-#if FINITE_DIFF
-#define RATE 1e-3
-#else
-#define RATE 1e-2
-#endif
+
+
 namespace{
     void srandf(){
         srand(time(0));
@@ -21,192 +16,144 @@ namespace{
     float randf(){
         return (float)rand() / (float)RAND_MAX;
     }
-    auto sigmoid = [](float i){
-        return 1.f/(1.f+exp(-i));
-    };
-    float sigP (float i){
-        float s = sigmoid(i);
-        return s * (1-s);
-    }
 
-    auto reLu = [](float i){
-        if (i<0){
-            i = 0;
-        }
-        return i; 
-    };
+    //activations
+    double linear_actF(double i){return i;}
+
+    double sigmoid_actF(double i) {return (double)(1.f/(1.f+exp(-i)));}
+
+    double reLu_actF(double i){
+        if (i<0) i = 0;
+        return (double)i; 
+    }
+    double binary_actF(double i) {return i>0;}
+    //derivative of the activation function
+    double linearPrime(double i) {return 1;}
+    double sigmoidPrime(double i){return sigmoid_actF(i) * (1-sigmoid_actF(i));}
+    double reLuPrime(double i){ return i>0;}
+    double binaryPrime(double i) {return 0;}
+    double sec2h(double i) {return 1.f/cosh(i)/cosh(i);}
+
+    
+    
 };
-//b
-model::model(const std::vector<DataPoint> &trainingSet, const std::vector<unsigned int> &shape){
-    this->numIns = trainingSet[0].inputs.size();
-    this->numOuts = trainingSet[0].outputs.size();
+// derivative functions are found at + 1 the activation function
+const actF NN::activationFunction[] = {
+    &sigmoid_actF,  &sigmoidPrime,  
+    &reLu_actF,     &reLuPrime, 
+    &binary_actF,   &binaryPrime,
+    &linear_actF,   &linearPrime,
+    &tanh,  &sec2h
+}; 
+model::model(const std::vector<DataPoint> trainingSet, const std::vector<Uint> shape){
     this->trainingSet = trainingSet;
     this->shape = shape;
-    unsigned int numWeights = 0;
-    unsigned int numBias = 0;
-    unsigned int numLayers = this->shape.size();
-    for(unsigned int i = 0; i < numLayers; ++i){
-        unsigned int layerSize = shape[i];
-        unsigned int prevLayerSize;
-        if (i){
-            prevLayerSize = shape[i-1];
-        }else{
-            prevLayerSize = numIns;
-        }
-        numBias += layerSize;
-        numWeights += layerSize * prevLayerSize;
-    }//numWeights & numBias now initialized
-    this->weightsList = list(numWeights);
-    this->biasList = list(numBias); 
-    this->NMat = std::vector<std::vector<Neuron*>>();
-    this->numNeurons = numBias;
-    wMats = std::vector<matrix>(shape.size());
+    numLayers = shape.size();
+    numIns = trainingSet[0].inputs.size();
+    numOuts = trainingSet[0].outputs.size();
+    Uint numneurons = 0;
+    for (Uint layersize : shape){
+        numneurons += layersize;
+    }
+    weights = matrix3(numLayers);
     int L = 0;
-    for (matrix& wmat : wMats){
-        wmat = matrix(shape[L]);
-        for (list& js : wmat){
+    for (matrix& layer : weights){
+        layer = matrix(shape[L]);
+        for (list& js : layer){
             js= list(L ? shape[L-1] : numIns);
-            for (float& ks : js){
+            for (double& ks : js){
                 ks = 0;
             }
         }
         L++;
     }
-    bMat = matrix(numNeurons);
+    biases = matrix(numneurons);
     L = 0;
-    for (list& Layer: bMat){
-        Layer = list(shape[L]);
-        for (float& B : Layer){
+    for (list& layer: biases){
+        layer = list(shape[L]);
+        for (double& B : layer){
             B = 0;
-        }
-        L++;
-    }
-    aMat = matrix(numNeurons);
-    L = 0;
-    for (list& Layer: aMat){
-        Layer = list(shape[L]);
-        for (float& A : Layer){
-            A = 0;
         }
         L++;
     }
 };
 model::model(){
     trainingSet = std::vector<DataPoint>();
-    shape = std::vector<unsigned int>();
-    weightsList = list();
-    biasList = list();
-    NMat = std::vector<std::vector<Neuron*>>();
-    wMats = std::vector<matrix>();
-    aMat = matrix();
-    bMat = matrix();
-};
-//NEURON
-unsigned int Neuron::nextId = 0;
-Neuron::Neuron(){
-    wptr = std::vector<float*>();
-};
-Neuron::Neuron(float val){
-    wptr = std::vector<float*>();
-    this->val = val;
-};
-Neuron::Neuron(unsigned int numInputs, float(*activationFunction)(float), unsigned int& wCursor, model& model, int layer){
-    id = nextId++;
-    l = layer;
-    if (l >=(int)model.NMat.size()-1){
-        model.NMat.push_back(std::vector<Neuron*>());
-    }
-    activate = activationFunction;
-    wptr = std::vector<float*>(numInputs);
+    shape = std::vector<Uint>();
+    weights = matrix3();
+    biases = matrix();
 
-    for(unsigned int i = 0; i < numInputs; ++i){
-        wptr[i] = &(model.weightsList[wCursor++]);
-        *wptr[i] = randf();
-    }
-    model.NMat[l].push_back(this);
-    b = &(model.biasList[id]);//1 bias per neuron so neuron0 aligns with bias0
-    *b = randf();
 };
 
-float Neuron::update(list ins){
-    float temp = 0;
-    for(unsigned int i = 0; i < wptr.size(); ++i){
-        temp += ins[i]* (*wptr[i]);
-    }
-    z = (temp + *b);
-    val = activate(z);
-    return val;
-}
-//END NEURON
 
 //NN
 
 //members
-NN::NN(struct model& m, float(*activationFunction)(float)){
+NN::NN(struct model& m, double rate)
+:
+AFI(m.numLayers),
+a(m.numLayers),
+z(m.numLayers),
+expectedOuts(m.numOuts),
+weightDelta(m.numLayers),
+bDelta(m.numLayers),
+dCda(m.numLayers)
+{
+    this->rate = rate;
     this->m = m;
-    this->neuronList = std::vector<Neuron>(m.numNeurons);
-    inputLayer = std::vector<Neuron>(m.numIns);
-    layerList = std::vector<Neuron*>(m.shape.size());
-    expectedOuts = std::vector<float>(m.numOuts);
-    unsigned int wCursor = 0;
-    int layer = 0;
-    int i = 1;
-    for (Neuron& n : this->neuronList){
-        n = Neuron(m.numIns, activationFunction, wCursor, m, layer);
-        if(i == 1)layerList[layer] = &n;
-        if(i == m.shape[layer]){
-            i = 1;
-            layer++;
-        }else i++;
+    numIns = m.trainingSet[0].inputs.size();
+    numOuts = m.trainingSet[0].outputs.size();
+    numLayers = m.shape.size();
+    numNeurons = 0;
+    for (Uint layersize : m.shape){
+        numNeurons += layersize;
     }
-};
-NN::NN(const std::vector<DataPoint> &trainingSet, const std::vector<unsigned int> &shape, float(*activationFunction)(float)){
-    this->m = model(trainingSet,shape);
-    inputLayer = std::vector<Neuron>(m.numIns);
-    expectedOuts = std::vector<float>(m.numOuts);
-    unsigned int wCursor = 0;
-    this->neuronList = std::vector<Neuron>(m.numNeurons);
-    int layer = 0;
-    int i = 1;
-    for (Neuron& n : this->neuronList){
-        n = Neuron(m.numIns, activationFunction, wCursor, m, layer);
-        if(i == m.shape[layer]){
-            layerList[layer] = &n;
-            i = 1;
-            layer++;
+
+    for (Uint l = 0; l < numLayers; ++l){
+        AFI[l] = sig;
+        a[l] = list(m.shape[l]);
+        z[l] = list(m.shape[l]);
+        bDelta[l] = list(m.shape[l]);
+        dCda[l] = list(m.shape[l]);
+        weightDelta[l] = matrix(m.shape[l]);
+        for (Uint j = 0; j < m.shape[l]; ++j){
+            weightDelta[l][j] = list(l? m.shape[l-1] : m.numIns);
         }
     }
+    resetTemps();
+    
 };
 list NN::forward(list ins, list eOuts){
     expectedOuts = eOuts;
-    list inputs = ins;
     list outs = list();
-    unsigned int numN = this->m.numNeurons;
-    unsigned int layer = 0;
-    unsigned int nextL = this->m.shape[layer];
-    //static_assert(inputLayer.size() == ins.size());
-    for (int i = 0; i < ins.size(); ++i){
-        inputLayer[i] = Neuron(ins[i]);
-    }
-    for (unsigned int i = 0; i < numN; ++i){
-        Neuron& n = neuronList[i];
-        if (i >= nextL){//check for end of layer
-            nextL += this->m.shape[++layer];
-            ins = outs;
-            outs = list();
+    
+    for (unsigned int l = 1; l < numLayers-1; ++l){
+        for (Uint j = 0; j < m.shape[0]; j++){
+            actF activate = activationFunction[AFI[l]];
+            double sum = 0;
+            for (Uint k = 0; j < numIns; k++){
+                if(!l){
+                    sum+= ins[k] * m.weights[0][j][k];
+                }else{
+                    sum += a[l-1][k] * m.weights[l][j][k];
+                }
+            }
+            z[l][j] = sum + m.biases[l][j];
+            a[l][j] = activate(z[l][j]);
         }
-        outs.push_back(n.update(ins));
     }
+    
+    for (Uint j = 0; j < numOuts; ++j){outs.push_back(a[numLayers][j]);}
     return outs;
 };
 float NN::cost(){
     float result = 0;
     int items = 0;
-    for (unsigned int i = 0; i < this->m.trainingSet.size(); ++i){
+    for (unsigned int i = 0; i < m.trainingSet.size(); ++i){
         float d = 0;
         DataPoint train = this->m.trainingSet[i];
         list predicted = forward(train.inputs, train.outputs);
-        for (int i = 0; i < predicted.size(); ++i){
+        for (int i = 0; i < numOuts; ++i){
             d = predicted[i] - train.outputs[i];
             items++;
             result += d * d;
@@ -214,144 +161,97 @@ float NN::cost(){
     }
     return result / items;
 };
-float NN::dCost(float* toMod){
-    float delta = DELTA;
-    float temp = *toMod;
-    float c = cost();
-    *toMod += delta;
-    float result = (cost() - c)/delta;
-    *toMod = temp;
-    return result;
-
-};
-void NN::backProp(std::vector<matrix>& weightsMatricies, matrix& biasMatrix, matrix& activatedMatrix, float rate){
-    //calculate dcx/dw and dcx db from one datapoint
-    auto deltaOuts = [this, &activatedMatrix](int L, int j, Neuron* n){
-        float result = 2 * (n->val - this->expectedOuts[j]);
-        activatedMatrix[L][j] = result;
-        return result;
+void NN::backProp(){
+    auto dCda0 = [this](Uint l, Uint j){
+        dCda[l][j] = (a[l][j] - expectedOuts[j]);
+        return dCda[l][j];
     };
-    auto deltaHid = [this, &activatedMatrix](int L, int k,  Neuron* n){
-        Neuron* LA = this->layerList[L+1];
+    auto dCdaL = [this](Uint l, Uint k){
         float result = 0;
-        for(int j = 0; j < m.shape[L+1]; j++){
-            result += *LA->wptr[k] * sigP(LA->z) * activatedMatrix[L+1][j];
+        actF dA = activationFunction[AFI[l+1]+1];
+        for(int j = 0; j < m.shape[l+1]; j++){
+            result += m.weights[l+1][j][k] * dA(z[l+1][j]) * dCda[l+1][j];
         }
-        activatedMatrix[L][k] = result;
+        dCda[l][k] = result;
         return result;
     };
-    Neuron* n = neuronList.data()+neuronList.size();
-    for (int L = m.numLayers-1; L>=0; L--){
-        for(int j = m.shape[L]-1; j >= 0; j--){
-            if(n->l<m.numLayers-1){
-                deltaHid(L, j, n);
+    for (int l = m.numLayers-1; l>=0; l--){
+        actF dA = activationFunction[AFI[l]+1];
+        for(int j = m.shape[l]-1; j >= 0; j--){
+            if(l<m.numLayers-1){
+                m.biases[l][j] += dA(z[l][j]) * dCda0(l, j);
             }else{
-                deltaOuts(L, j, n);
+                m.biases[l][j] += dA(z[l][j]) * dCdaL(l, j);
             }
-            
-            biasMatrix[L][j] += sigP(n->z)*activatedMatrix[L][j];
-            
-            for(int k = m.shape[L-1]-1; k >= 0; k--){
-                Neuron* NBk = layerList[L-1]+k;
-                weightsMatricies[L][j][k] += NBk->val * sigP(n->z) * activatedMatrix[L][j];
+            for(int k = m.shape[l-1]-1; k >= 0; k--){
+                m.weights[l][j][k] += a[l][j] * dA(z[l][j]) * dCda[l][j];
             }
-
-            n--;
         }
     }
 }
-float NN::gradientDescent(){
-#if FINITE_DIFF
-    unsigned int numW = m.weightsList.size();
-    float deltaSum = 0;
-    for(unsigned int i = numW; i > 0; --i){
-        float& weightPtr = m.weightsList[i-1];
-        float deltaC = dCost(&weightPtr);
-        weightPtr -= deltaC*RATE;
-        deltaSum+=deltaC;
-    }
-    for (int i = 0; i < m.numNeurons; ++i){
-        m.biasList[i] -= dCost(&m.biasList[i])*RATE;
-    }
-    return deltaSum;
-#else
-    srandf(1);
-    
+void NN::gradientDescent(){
     // dataSet trainingSet = dataSet();
     // for ( int i = 0; i < 4; ++i){
     //     trainingSet.push_back(m.trainingSet[randf()*m.trainingSet.size()]);
     // }
-
     for (int i = 0; i < m.trainingSet.size(); ++i){
         dataPoint train = m.trainingSet[i];
         forward(train.inputs, train.outputs);
-        backProp(m.wMats, m.bMat, m.aMat, RATE * tanh(cost()));
+        backProp();
     }
-    float rate = RATE;
-    //average the weights and biases
-    int n = m.trainingSet.size();
-    int imax = m.shape.size();
-    int bcursor = 0;
-    int acursor = 0;
-    for (int i = 0; i < imax; ++i){
-        int jmax = m.shape[i];
-        for (int j = 0; j < jmax; ++j){
-            int kmax = i ? m.shape[i-1] : m.numIns;
-            m.bMat[i][j] /= n;
-            m.biasList[bcursor++] -= m.bMat[i][j];
-            for(int k = 0; k < kmax; ++k){
-                m.wMats[i][j][k] /= n;
-                m.weightsList[acursor++] -= rate * m.wMats[i][j][k];
 
+    //average
+    Uint n = m.trainingSet.size();
+    for (Uint l = 0; l < numLayers; ++l){
+        for (Uint j = 0; j < m.shape[l]; ++j){
+            Uint kmax = l ? m.shape[l-1] : numIns;
+            bDelta[l][j] /= n;
+            m.biases[l][j] -= bDelta[l][j]*rate;
+            for(int k = 0; k < kmax; ++k){
+                weightDelta[l][j][k] /= n;
+                m.weights[l][j][k] -= weightDelta[l][j][k]* rate;
             }
         }
     }
-
-
-#endif
+    resetTemps();
 };
-float NN::train(unsigned int iter){
+void NN::train(Uint iter){
     std::cout<<"Training...\n";
-    for (unsigned int i = 0; i < iter; ++i){
+    for (Uint i = 0; i < iter; ++i){
         gradientDescent();
         //std::cout<<i<<"-cost: "<<cost()<<std::endl;
     }
     std::cout<<"...Training Done!\n";
-    return cost();
+    return;
 };
-void NN::initializeParams(){
-    int w = 0;
-    for(int i = 0; i < m.numNeurons; ++i){
-        Neuron* n = &neuronList[i]; 
-        //std::cout<<n->id<<'\n';
-        for (int j = 0; j < n->wptr.size(); ++j){
-            neuronList[i].wptr[j] = m.weightsList.data()+w;
-            *neuronList[i].wptr[j] = randf();
-            //std::cout<<"&w"<<w<<" = "<< m.weightsList.data()+w<<'\t';
-            //std::cout<<"wp"<<j<<" = "<< neuronList[i].wptr[j]<<'\n';
-            w+=1;
+void NN::resetTemps(){
+    for(Uint l = 0; l < m.numLayers; ++l){
+        for (Uint j = 0; j < m.shape[l]; ++j){
+            bDelta[l][j] = 0;
+            for (Uint k = 0; k< m.shape[l-1]; ++k){
+                weightDelta[l][j][k] = 0;
+            }
         }
     }
 }
 void NN::printState(){
-    int N = 0;
-    for (Neuron& n : neuronList){
-        std::cout<<"\nN: "<<N++<<"\tval = "<< n.val<<"\tBias = "<<*n.b<<std::endl;
-        int w = 0;
+    // int N = 0;
+    // for (Neuron& n : neuronList){
+    //     std::cout<<"\nN: "<<N++<<"\tval = "<< n.val<<"\tBias = "<<*n.b<<std::endl;
+    //     int w = 0;
     
-        for (float* weight : n.wptr){
-            std::cout<<"w-"<<w++<<" = "<<*weight<<std::endl;
-        }
-        std::cout<<"\n-----------------------------------------------\n";
-
-    }
+    //     for (float* weight : n.wptr){
+    //         std::cout<<"w-"<<w++<<" = "<<*weight<<std::endl;
+    //     }
+    //     std::cout<<"\n-----------------------------------------------\n";
+    // }
 }
 void NN::test(){
     for (unsigned int i = 0; i < m.trainingSet.size(); ++i){
         DataPoint train = this->m.trainingSet[i];
 
         std::cout<<"inputs: {";
-        for (float x : train.inputs){
+        for (double x : train.inputs){
             std::cout<<x<<", ";
         }
         std::cout<<"} -> outputs: {";
@@ -365,101 +265,10 @@ void NN::test(){
     return;
 }
 
-//END NN
-//testMain
-dataSet buildBinSet(){
-    int numNodes = 4;
-    int numVals = 16;
-    dataSet bin;
-    for (unsigned int i = 0; i< numVals; ++i){
-        list ins;
-        list out = {(float)i};
-        unsigned int val = i;
-        for (int j = 1; j<=numNodes; j++){
-            if(val>=(1<<(numNodes-j))){
-                ins.push_back(1);
-                val -= 1<<(numNodes-j);
-            }else{
-                ins.push_back(0);
-            }
-            
-        }
-        DataPoint point = {ins,out};
-        bin.push_back(point);
-    }
-    return bin;
-}
-
-dataSet buildAddSet(){
-    int numNodes = 4;
-    int numVals = 8;
-    dataSet add = dataSet(10);
-    for (dataPoint dp : add){
-    }
-    return add;
-}
-
-
-
-
-int main(void){
-    srandf();
-    randf();
-
-    
-
-
-    int iterations = EPOCH;
-    if (iterations < 0){iterations *= -1;}
-    std::vector<DataPoint> XOR = {
-        {{0,0}, {0}},
-        {{1,0}, {1}},
-        {{0,1}, {1}},
-        {{1,1}, {0}}
-    };
-    std::vector<DataPoint> OR = {
-        {{0,0}, {0}},
-        {{1,0}, {1}},
-        {{0,1}, {1}},
-        {{1,1}, {1}}
-    };
-    std::vector<DataPoint> SQRT = {
-        {{0},{0}},
-        {{2},{(float)sqrt(2)}},
-        {{4},{2}},
-        {{9},{3}},
-    };
-    std::vector<DataPoint> BIN = buildBinSet();
-
-    std::vector<unsigned int> shape = {1};
-    srandf();
-    
-
-    struct model m = model(XOR, shape);
-    NN network = NN(m, sigmoid);
-    network.initializeParams();
-    std::cout<<"cost: " << network.cost()<<std::endl;
-    network.test();
-    network.printState();
-    float cost = network.train(iterations);
-    std::cout<<"cost: " << cost <<std::endl;
-    network.test();
-    network.printState();
-}
 
 /*----------------------------------------------------------------------
 TODO:
 --------
-
-fix model/neuron initialization
-    - notes:  
-    - the weights pointers in the neurons dont point to the weights in the model's list of weights
-
-
-make the neuron list in NN a 2d array, such that it can be indexed by layer then number
-    OR
-give NN a list of pointers to the beginning of each layer
-change first public in NN and Neuron declaration to private: public for debugging only
 
 -----------------------------------------------------------------------*/
 #endif //NNL_CPP

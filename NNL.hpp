@@ -6,7 +6,28 @@
 #include <vector>
 #include <ctime>
 #include <algorithm>
-#include <memory>
+
+class Layer;
+class NN;
+
+
+typedef size_t Uint;
+typedef std::vector<double> list;
+typedef std::vector<list> matrix;
+typedef std::vector<matrix> matrix3;
+typedef struct dataPoint{
+    list inputs;
+    list outputs;
+} DataPoint;
+typedef std::vector<DataPoint> dataSet;
+using actF = double(*)(double);
+enum activationFunctionIndex {
+    sig = 0,
+    relu = 2,
+    bin = 4,
+    lin = 6,
+    tanH = 8
+};
 
 namespace{
     void srandf();
@@ -14,58 +35,56 @@ namespace{
     float randf();
 };
 
-typedef std::vector<float> list;
-typedef std::vector<list> matrix;
-typedef struct dataPoint{
-    list inputs;
-    list outputs;
-} DataPoint;
-typedef std::vector<DataPoint> dataSet;
-
-class Neuron;
-
 
 struct model{
-    unsigned int numIns;
-    unsigned int numOuts;
-    unsigned int numNeurons;
-    unsigned int numLayers;
     std::vector<DataPoint> trainingSet;
-    std::vector<unsigned int> shape;
-    list weightsList;
-    list biasList;
-    std::vector<std::vector<Neuron*>> NMat;
-    std::vector<matrix> wMats;
-    matrix aMat;
-    matrix bMat;
+    std::vector<Uint> shape;//shape of hidden layers and output layers
+    Uint numLayers;
+    Uint numIns;
+    Uint numOuts;
+    //[layer L ][index j ]
+    matrix biases;
+    //[layer l][index j][previous layer index k]
+    matrix3 weights;
     
-    model(const std::vector<DataPoint> &trainingSet, const std::vector<unsigned int> &shape);
+    model(const std::vector<DataPoint> trainingSet, const std::vector<Uint> shape);
     model();
 };
 
 class NN{
-    //Members
     public:
-    struct model m{};
-    std::vector<Neuron> neuronList;
-    std::vector<Neuron> inputLayer;
-    std::vector<Neuron*> layerList;
-    std::vector<float> expectedOuts;
-    float gradientDescent();
-    public:
-    float dCost(float* toMod);
+    double rate;    
+    struct model m;
+    std::vector<activationFunctionIndex> AFI;
+
+    matrix a;
+    matrix z;
+    list expectedOuts;
+    
+
+    Uint numIns;
+    Uint numOuts;
+    Uint numNeurons;
+    Uint numLayers;
+
+
+    matrix3 weightDelta;
+    matrix bDelta;
+    matrix dCda;
+    void initDeltas();
+    static const actF activationFunction[10];
     list forward(list ins, list eOuts);
-    NN(struct model& m, float(*activationFunction)(float));
-    NN(const std::vector<DataPoint> &trainingSet, const std::vector<unsigned int> &shape, float(*activationFunction)(float));
-    float cost();
-    float train(unsigned int iterations);
-    void initializeParams();
+
+    void train(Uint epoch);
+    void gradientDescent();
+    void backProp();
+    void resetTemps();
     void test();
-    void backProp(std::vector<matrix>& weightsMatricies, matrix& biasMatrix, matrix& activatedMatrix, float rate);
     void printState();
-    friend class Neuron;
-
-
+    NN(struct model& m, double rate);
+    
+    float cost();
+    friend class Layer;
 };
 void test(NN);
 #endif //NNL_HPP
