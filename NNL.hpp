@@ -6,6 +6,7 @@
 #include <vector>
 #include <ctime>
 #include <algorithm>
+#include <memory>
 
 namespace{
     void srandf();
@@ -19,19 +20,29 @@ typedef struct dataPoint{
     list inputs;
     list outputs;
 } DataPoint;
+typedef std::vector<DataPoint> dataSet;
+
+class Neuron;
+
+
 struct model{
     unsigned int numIns;
     unsigned int numOuts;
     unsigned int numNeurons;
+    unsigned int numLayers;
     std::vector<DataPoint> trainingSet;
     std::vector<unsigned int> shape;
     list weightsList;
     list biasList;
+    std::vector<std::vector<Neuron*>> NMat;
+    std::vector<matrix> wMats;
+    matrix aMat;
+    matrix bMat;
     
     model(const std::vector<DataPoint> &trainingSet, const std::vector<unsigned int> &shape);
     model();
 };
-typedef std::vector<DataPoint> dataSet;
+
 class Neuron{
     public:
     static unsigned int nextId;
@@ -72,7 +83,8 @@ class NN{
     float train(unsigned int iterations);
     void initializeParams();
     void test();
-    float backProp(std::vector<matrix>& weightsMatricies, matrix& biasMatrix, matrix& activatedMatrix);
+    void backProp(std::vector<matrix>& weightsMatricies, matrix& biasMatrix, matrix& activatedMatrix, float rate);
+    void printState();
     friend class Neuron;
 
 
