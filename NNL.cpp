@@ -1,6 +1,6 @@
 #include <cstddef>
 #include "NNL.hpp"
-//OOGABOOGA CHANGE
+//a
 #ifndef NNL_CPP
 #define NNL_CPP
 #define FINITE_DIFF 1
