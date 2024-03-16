@@ -178,7 +178,7 @@ void NN::backProp(){
     for (int l = m.numLayers-1; l>=0; l--){
         actF dA = activationFunction[AFI[l]+1];
         for(int j = m.shape[l]-1; j >= 0; j--){
-            if(l<m.numLayers-1){
+            if(l==m.numLayers-1){
                 m.biases[l][j] += dA(z[l][j]) * dCda0(l, j);
             }else{
                 m.biases[l][j] += dA(z[l][j]) * dCdaL(l, j);
