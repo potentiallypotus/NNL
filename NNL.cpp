@@ -104,6 +104,7 @@ dCda(m.numLayers)
     numIns = m.trainingSet[0].inputs.size();
     numOuts = m.trainingSet[0].outputs.size();
     numLayers = m.shape.size();
+    
     numNeurons = 0;
     for (Uint layersize : m.shape){
         numNeurons += layersize;
@@ -127,7 +128,7 @@ list NN::forward(list ins, list eOuts){
     expectedOuts = eOuts;
     list outs = list();
     
-    for (unsigned int l = 1; l < numLayers-1; ++l){
+    for (unsigned int l = 0; l < numLayers-1; ++l){
         for (Uint j = 0; j < m.shape[0]; j++){
             actF activate = activationFunction[AFI[l]];
             double sum = 0;
@@ -138,12 +139,15 @@ list NN::forward(list ins, list eOuts){
                     sum += a[l-1][k] * m.weights[l][j][k];
                 }
             }
+            std::cout<<"debug3\n";
             z[l][j] = sum + m.biases[l][j];
             a[l][j] = activate(z[l][j]);
         }
     }
     
-    for (Uint j = 0; j < numOuts; ++j){outs.push_back(a[numLayers][j]);}
+    for (Uint j = 0; j < numOuts; ++j){
+        outs.push_back(a[numLayers][j]);
+    }
     return outs;
 };
 float NN::cost(){
@@ -153,6 +157,7 @@ float NN::cost(){
         float d = 0;
         DataPoint train = this->m.trainingSet[i];
         list predicted = forward(train.inputs, train.outputs);
+        std::cout<<"debug2: "<< i <<"\n";
         for (int i = 0; i < numOuts; ++i){
             d = predicted[i] - train.outputs[i];
             items++;
@@ -235,16 +240,18 @@ void NN::resetTemps(){
     }
 }
 void NN::printState(){
-    // int N = 0;
-    // for (Neuron& n : neuronList){
-    //     std::cout<<"\nN: "<<N++<<"\tval = "<< n.val<<"\tBias = "<<*n.b<<std::endl;
-    //     int w = 0;
-    
-    //     for (float* weight : n.wptr){
-    //         std::cout<<"w-"<<w++<<" = "<<*weight<<std::endl;
-    //     }
-    //     std::cout<<"\n-----------------------------------------------\n";
-    // }
+    int N = 0;
+    for (int i = 0; i < numLayers; ++i){
+        std::cout<<"layer "<< i << ":\n";
+        for (int j = 0; j < m.shape[i]; ++j){
+            std::cout<<"\tNeuron "<< j << ": "<< z[i][j] << "\n";
+            if (i){
+                for (int k = 0; k < m.weights[i][j].size(); k++){
+                std::cout<<"\t\tweight "<< k <<": "<< m.weights[i][j][k]<< "\n";
+                }
+            }
+        }
+    }
 }
 void NN::test(){
     for (unsigned int i = 0; i < m.trainingSet.size(); ++i){

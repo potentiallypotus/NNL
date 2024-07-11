@@ -33,6 +33,7 @@
 
 #user
 .vscode
+a.out.dYSM/*
 main.dSYM
 main
 main.cpp
