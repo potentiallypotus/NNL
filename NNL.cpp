@@ -62,7 +62,7 @@ model::model(const std::vector<DataPoint> trainingSet, const std::vector<Uint> s
         for (list& js : layer){
             js= list(L ? shape[L-1] : numIns);
             for (double& ks : js){
-                ks = 0;
+                ks = randf();
             }
         }
         L++;
@@ -85,8 +85,9 @@ model::model(){
 
 };
 
-
+/*----------------------------------------------
 //NN
+-----------------------------------------------*/
 
 //members
 NN::NN(struct model& m, double rate)
@@ -224,7 +225,7 @@ void NN::train(Uint iter){
     std::cout<<"Training...\n";
     for (Uint i = 0; i < iter; ++i){
         gradientDescent();
-        //std::cout<<i<<"-cost: "<<cost()<<std::endl;
+        std::cout<<i<<"-cost: "<<cost()<<std::endl;
     }
     std::cout<<"...Training Done!\n";
     return;
