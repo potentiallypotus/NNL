@@ -132,17 +132,17 @@ list NN::forward(list ins, list eOuts){
         for (Uint j = 0; j < m.shape[0]; j++){
             actF activate = activationFunction[AFI[l]];
             double sum = 0;
-            for (Uint k = 0; j < numIns; k++){
+            for (Uint k = 0; k < numIns; k++){
                 if(!l){
                     sum+= ins[k] * m.weights[0][j][k];
                 }else{
                     sum += a[l-1][k] * m.weights[l][j][k];
                 }
             }
-            std::cout<<"debug3\n";
             z[l][j] = sum + m.biases[l][j];
             a[l][j] = activate(z[l][j]);
         }
+            //std::cout<<"debug3 Layer: "<< l <<"\n";
     }
     
     for (Uint j = 0; j < numOuts; ++j){
@@ -156,8 +156,8 @@ float NN::cost(){
     for (unsigned int i = 0; i < m.trainingSet.size(); ++i){
         float d = 0;
         DataPoint train = this->m.trainingSet[i];
+        //std::cout<<"debug2: "<< i <<"\n";
         list predicted = forward(train.inputs, train.outputs);
-        std::cout<<"debug2: "<< i <<"\n";
         for (int i = 0; i < numOuts; ++i){
             d = predicted[i] - train.outputs[i];
             items++;
@@ -264,10 +264,11 @@ void NN::test(){
         std::cout<<"} -> outputs: {";
 
         list predicted = forward(train.inputs, train.outputs);
-        for (int i = 0; i < predicted.size(); ++i){
+        for (int i = 0; i < predicted.size()-1; ++i){
             std::cout<<predicted[i]<<", ";
         }
-        std::cout<<"}\n";
+
+        std::cout<< predicted[predicted.size()-1]<<"}\n";
     }
     return;
 }
