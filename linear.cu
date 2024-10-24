@@ -1,6 +1,8 @@
 #include "linear.cuh"
 
-Matrix::Matrix(int r, int c) : rows(r), cols(c), data(nullptr), d_data(nullptr) {
+Matrix::Matrix(unsigned int r, unsigned int c) {
+	rows = r;
+	cols = c;
 	hostData = new float[rows * cols];  // Allocate on host
 	deviceData = nullptr;
 }
@@ -43,7 +45,7 @@ void Matrix::add(const Matrix& other){
 }
 
 //Cuda kernels
-__global__ void matrixAddKernel(float* a, float* b, float* result, int rows ,int cols){
+__global__ void matrixAddKernel(float* a, float* b, float* result, unsigned int rows , unsigned int cols){
 	unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < rows*cols){
 		result[idx] = a[idx] + b[idx];
