@@ -2,21 +2,21 @@
 
 
 # Compiler and flags
-CXX="clang++"
+CXX="nvcc"
 CUDAXX="nvcc"
 CXXFLAGS="-std=c++17"
 
 # Source and object files
 SRC_DIR="src"
 OBJ_DIR="obj"
-FILES=("main.cpp")
+FILES=("main.cpp" "NNL.cpp")
 CUDA_FILES=("linear.cu")
-TARGET="myprogram"
+TARGET="runNNL"
 
 # Create object directory if it doesn't exist
 mkdir -p $OBJ_DIR
 
-
+compileFailed=0
 # Function to compile a source file if necessary returns 0 if no files needed compilation
 compile_if_needed() {
     local src_file="$1"
@@ -25,7 +25,12 @@ compile_if_needed() {
     # Check if the object file exists or is older than the source file
     if [ ! -f "$obj_file" ] || [ "$src_file" -nt "$obj_file" ]; then
         echo "Compiling $src_file..."
-        $CXX $CXXFLAGS -c "$src_file" -o "$obj_file"
+        $CXX $CXXFLAGS -c -g -G -O0 "$src_file" -o "$obj_file"
+	if [[ $? -eq 0 ]]; then
+	    needsLinking=1
+	else
+	    compileFailed=1
+	fi
 	return 1
     else
         echo "$src_file is up to date, skipping compilation."
@@ -40,6 +45,7 @@ compile_cuda_if_needed() {
     if [ ! -f "$obj_file" ] || [ "$src_file" -nt "$obj_file" ]; then
         echo "Compiling $src_file..."
         $CUDAXX $CXXFLAGS -c "$src_file" -o "$obj_file"
+	needsLinking=1
 	return 1
     else
         echo "$src_file is up to date, skipping compilation."
@@ -52,20 +58,14 @@ compile_cuda_if_needed() {
 needsLinking=0
 for file in "${FILES[@]}"; do
 	compile_if_needed "$file"
-	if [$? -eq 1]; then
-		needsLinking= 1
-	fi
 done
 for file in "${CUDA_FILES[@]}"; do
 	compile_cuda_if_needed "$file"
-	if [$? -eq 1]; then
-		needsLinking= 1
-	fi
 done
 
 
 # Link the object files into the final executable
-if needsLinking; then
+if [[ $needsLinking -eq 1 && $compileFailed -eq 0 ]]; then
 	echo "Linking..."
 	$CUDAXX $OBJ_DIR/*.o -o $TARGET
 	echo "Build complete."
